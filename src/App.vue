@@ -113,88 +113,162 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <main class="shell">
-    <header class="header">
-      <div class="brand">
-        <span class="brand-icon">◈</span> ATMOS <span class="brand-sub">/ SENSOR MONITOR</span>
+  <main class="mx-auto flex min-h-screen max-w-shell min-w-80 flex-col px-8 max-mobile:px-5">
+    <header
+      class="flex h-22 items-center justify-between border-b border-border-subtle max-mobile:h-18"
+    >
+      <div class="text-lg font-bold tracking-brand">
+        <span class="mr-2 text-2xl text-status-accent align-middle">◈</span> ATMOS
+        <span
+          class="ml-2 font-mono text-caption font-normal tracking-label text-brand-caption max-mobile:hidden"
+          >/ SENSOR MONITOR</span
+        >
       </div>
-      <span class="badge" :class="{ online: connected }"
-        ><span class="dot"></span>{{ connected ? 'CONNECTED' : 'OFFLINE' }}</span
+      <span
+        class="flex items-center gap-2 rounded-full border px-3.5 py-2.5 font-mono text-label"
+        :class="
+          connected
+            ? 'border-status-border text-status-online'
+            : 'border-badge-border text-status-offline'
+        "
+        ><span
+          class="size-2 rounded-full"
+          :class="connected ? 'bg-status-accent shadow-status' : 'bg-status-dot'"
+        ></span
+        >{{ connected ? 'CONNECTED' : 'OFFLINE' }}</span
       >
     </header>
 
-    <section class="intro">
-      <p class="eyebrow">FT232H <span>→</span> I²C <span>→</span> BME280</p>
-      <h1>Know your <em>environment.</em></h1>
-      <p class="description">
+    <section class="pt-10 pb-14 max-mobile:pt-8 max-mobile:pb-11">
+      <p class="mb-6 font-mono text-label tracking-label text-eyebrow">
+        FT232H <span class="mx-2.5 text-eyebrow-divider">→</span> I²C
+        <span class="mx-2.5 text-eyebrow-divider">→</span> BME280
+      </p>
+      <h1 class="mb-5 text-hero leading-tight font-semibold tracking-hero">
+        Know your <em class="not-italic text-heading-accent">environment.</em>
+      </h1>
+      <p class="m-0 max-w-xl text-base leading-relaxed text-copy">
         Real-time temperature, humidity, and atmospheric pressure. Straight from your sensor to your
         browser.
       </p>
     </section>
 
-    <section class="connection panel" aria-label="Device connection">
-      <div class="connection-info">
-        <span class="section-label">01 / DEVICE CONNECTION</span>
-        <div class="device-line">
-          <span class="device-icon">⌁</span>
+    <section
+      class="flex min-h-36 items-center justify-between gap-6 panel px-8 py-6 max-mobile:flex-col max-mobile:items-stretch"
+      aria-label="Device connection"
+    >
+      <div>
+        <span class="font-mono text-label tracking-label text-muted">01 / DEVICE CONNECTION</span>
+        <div class="mt-5 flex items-center gap-4">
+          <span
+            class="grid size-11 place-items-center rounded-lg bg-device-icon-bg text-3xl text-device-icon"
+            >⌁</span
+          >
           <div>
-            <strong>FT232H USB bridge</strong><small>{{ status }}</small>
+            <strong class="block text-base font-semibold">FT232H USB bridge</strong
+            ><small class="mt-1 block text-xs text-secondary-copy">{{ status }}</small>
           </div>
         </div>
       </div>
-      <div class="connection-actions">
-        <div class="connection-field">
-          <label for="address">I²C ADDRESS</label
-          ><select id="address" v-model="address" :disabled="connected || busy">
+      <div class="flex flex-wrap items-end justify-end gap-3 max-mobile:justify-between">
+        <div class="flex flex-col gap-2">
+          <label class="font-mono text-label tracking-label text-field-label" for="address"
+            >I²C ADDRESS</label
+          ><select
+            id="address"
+            v-model="address"
+            class="h-11 rounded-md border border-border-field bg-field-bg py-0 pr-7 pl-3 text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+            :disabled="connected || busy"
+          >
             <option value="0x76">0x76</option>
             <option value="0x77">0x77</option>
           </select>
         </div>
-        <button v-if="!connected" class="primary" :disabled="!supported || busy" @click="connect">
+        <button
+          v-if="!connected"
+          class="h-11 cursor-pointer rounded-md bg-accent px-6 font-bold whitespace-nowrap text-accent-ink hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 max-narrow:flex-1"
+          :disabled="!supported || busy"
+          @click="connect"
+        >
           {{ busy ? 'Connecting…' : 'Connect device ↗' }}
         </button>
-        <button v-else class="secondary" @click="stop">Disconnect</button>
+        <button
+          v-else
+          class="h-11 cursor-pointer rounded-md bg-secondary px-6 font-bold whitespace-nowrap text-foreground hover:bg-secondary-hover max-narrow:flex-1"
+          @click="stop"
+        >
+          Disconnect
+        </button>
       </div>
     </section>
-    <p v-if="!supported" class="alert" role="alert">
+    <p
+      v-if="!supported"
+      class="rounded-lg border border-alert-border bg-alert-bg px-4 py-3.5 text-sm text-alert-text"
+      role="alert"
+    >
       WebUSB requires a compatible Chromium browser on localhost or HTTPS.
     </p>
-    <p v-if="error" class="alert" role="alert">{{ error }}</p>
-    <div class="readings-head">
-      <span class="section-label">02 / LIVE READINGS</span
-      ><span class="timestamp">LAST UPDATED &nbsp;{{ time }}</span>
+    <p
+      v-if="error"
+      class="rounded-lg border border-alert-border bg-alert-bg px-4 py-3.5 text-sm text-alert-text"
+      role="alert"
+    >
+      {{ error }}
+    </p>
+    <div class="mt-16 mb-4 flex items-center justify-between max-mobile:mt-11">
+      <span class="font-mono text-label tracking-label text-muted">02 / LIVE READINGS</span
+      ><span class="font-mono text-label tracking-label text-timestamp max-mobile:text-caption"
+        >LAST UPDATED &nbsp;{{ time }}</span
+      >
     </div>
-    <section class="grid" aria-label="Sensor readings">
-      <article class="metric panel temp">
-        <div class="metric-top"><span>TEMPERATURE</span><span class="metric-symbol">↗</span></div>
+    <section class="grid grid-cols-3 gap-4 max-mobile:grid-cols-1" aria-label="Sensor readings">
+      <article class="metric-card">
+        <div class="metric-top">
+          <span>TEMPERATURE</span
+          ><span class="font-sans text-2xl leading-4 text-temperature">↗</span>
+        </div>
         <div class="metric-value">
-          {{ reading ? temperature : '—' }}<span v-if="reading">°{{ fahrenheit ? 'F' : 'C' }}</span>
+          {{ reading ? temperature : '—'
+          }}<span v-if="reading" class="metric-unit">°{{ fahrenheit ? 'F' : 'C' }}</span>
         </div>
         <div class="metric-foot">
           <span>Ambient air temperature</span
-          ><button class="unit-toggle" type="button" @click="fahrenheit = !fahrenheit">
+          ><button
+            class="cursor-pointer p-0 text-unit-toggle hover:underline"
+            type="button"
+            @click="fahrenheit = !fahrenheit"
+          >
             °C / °F
           </button>
         </div>
       </article>
-      <article class="metric panel humidity">
-        <div class="metric-top"><span>HUMIDITY</span><span class="metric-symbol">◌</span></div>
+      <article class="metric-card">
+        <div class="metric-top">
+          <span>HUMIDITY</span><span class="font-sans text-2xl leading-4 text-humidity">◌</span>
+        </div>
         <div class="metric-value">
-          {{ reading ? reading.humidity.toFixed(1) : '—' }}<span v-if="reading">%</span>
+          {{ reading ? reading.humidity.toFixed(1) : '—'
+          }}<span v-if="reading" class="metric-unit">%</span>
         </div>
         <div class="metric-foot">Relative humidity</div>
       </article>
-      <article class="metric panel pressure">
-        <div class="metric-top"><span>PRESSURE</span><span class="metric-symbol">◎</span></div>
+      <article class="metric-card">
+        <div class="metric-top">
+          <span>PRESSURE</span><span class="font-sans text-2xl leading-4 text-pressure">◎</span>
+        </div>
         <div class="metric-value">
-          {{ reading ? reading.pressure.toFixed(1) : '—' }}<span v-if="reading">hPa</span>
+          {{ reading ? reading.pressure.toFixed(1) : '—'
+          }}<span v-if="reading" class="metric-unit">hPa</span>
         </div>
         <div class="metric-foot">Barometric pressure</div>
       </article>
     </section>
 
-    <footer>
-      <span>LOCAL DATA ONLY · NO CLOUD CONNECTION</span><span>BME280 / FT232H / WEBUSB</span>
+    <footer
+      class="mt-auto flex justify-between gap-5 border-t border-border-subtle py-6 font-mono text-label tracking-wide text-footer max-narrow:text-caption"
+    >
+      <span class="pt-12 max-mobile:pt-10">LOCAL DATA ONLY · NO CLOUD CONNECTION</span
+      ><span class="pt-12 max-mobile:pt-10">BME280 / FT232H / WEBUSB</span>
     </footer>
   </main>
 </template>
