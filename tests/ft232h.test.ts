@@ -120,16 +120,14 @@ void test('hardware-byte-clock chip-ID read accepts padded ACK replies', async (
   for (const opcode of [0x11, 0x22, 0x20, 0x13]) assert.ok(transaction.includes(opcode));
 });
 
-void test('26-byte calibration read splits USB writes without splitting the MPSSE response', async () => {
+void test('26-byte calibration read uses one short USB write and one MPSSE response', async () => {
   const replies = [0x80, 0xc0, 0, ...Array(26).fill(42)];
-  const limited = fakeDevice(replies, 0x0403, 0x6014, 256);
+  const limited = fakeDevice(replies, 0x0403, 0x6014, 1600);
   const bus = new Ft232hI2c(limited.device);
   await bus.open();
   assert.deepEqual(Array.from(await bus.readRegister(0x76, 0x88, 26)), Array(26).fill(42));
-  const chunks = limited.writes.slice(1);
-  assert.ok(chunks.length > 1);
-  assert.ok(chunks.slice(0, -1).every((chunk) => chunk.length === 256));
-  assert.equal(chunks.flat().at(-1), 0x87); // flush after the full command stream
+  assert.equal(limited.writes.length, 2); // setup + complete calibration transaction
+  assert.equal(limited.writes[1].at(-1), 0x87); // flush the response
   assert.equal(limited.getReadCount(), 1);
 });
 

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { compensate, parseCalibration, type Calibration } from '../src/lib/bme280';
+import { Bme280, compensate, parseCalibration, type Calibration } from '../src/lib/bme280';
 
 void test('Bosch datasheet temperature and pressure compensation example', () => {
   const raw = Uint8Array.from([0x65, 0x5a, 0xc0, 0x7e, 0xed, 0x00, 0x40, 0x00]); // P=415148, T=519888
@@ -28,6 +28,45 @@ void test('Bosch datasheet temperature and pressure compensation example', () =>
   assert.ok(Math.abs(result.temperature - 25.08) < 0.02);
   assert.ok(Math.abs(result.pressure - 1006.53) < 0.03);
   assert.equal(result.humidity, 0);
+});
+
+void test('retries an unfinished first measurement after configuring the sensor', async () => {
+  let reads = 0;
+  const sensor = new Bme280({
+    async readRegister(_address, register) {
+      if (register === 0xd0) return Uint8Array.of(0x60);
+      if (register === 0x88) {
+        const calibration = new Uint8Array(26);
+        calibration[6] = 1; // P1 must be nonzero
+        return calibration;
+      }
+      if (register === 0xe1) return new Uint8Array(7);
+      assert.equal(register, 0xf7);
+      reads++;
+      return reads === 1 ? Uint8Array.of(0x80, 0, 0, 0x80, 0, 0, 0x80, 0) : new Uint8Array(8);
+    },
+    async writeRegister() {},
+  });
+  await sensor.initialize();
+  assert.ok(Number.isFinite((await sensor.read()).temperature));
+  assert.equal(reads, 2);
+});
+
+void test('reports a sensor that never finishes its measurement', async () => {
+  let reads = 0;
+  const sensor = new Bme280({
+    async readRegister(_address, register) {
+      if (register === 0xd0) return Uint8Array.of(0x60);
+      if (register === 0x88) return new Uint8Array(26);
+      if (register === 0xe1) return new Uint8Array(7);
+      reads++;
+      return Uint8Array.of(0x80, 0, 0, 0x80, 0, 0, 0x80, 0);
+    },
+    async writeRegister() {},
+  });
+  await sensor.initialize();
+  await assert.rejects(() => sensor.read(), /measurement is not ready yet/);
+  assert.equal(reads, 5);
 });
 
 void test('signed humidity calibration is decoded from split nibbles', () => {

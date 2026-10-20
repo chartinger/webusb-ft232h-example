@@ -56,14 +56,19 @@ export function parseCalibration(a: Uint8Array, h: Uint8Array): Calibration {
   };
 }
 
+function measurementNotReady(raw: Uint8Array): boolean {
+  const adcP = (raw[0] << 12) | (raw[1] << 4) | (raw[2] >> 4);
+  const adcT = (raw[3] << 12) | (raw[4] << 4) | (raw[5] >> 4);
+  const adcH = (raw[6] << 8) | raw[7];
+  return adcT === 0x80000 || adcP === 0x80000 || adcH === 0x8000;
+}
+
 export function compensate(raw: Uint8Array, c: Calibration): Reading {
   if (raw.length !== 8) throw new Error('Incomplete BME280 reading');
   const adcP = (raw[0] << 12) | (raw[1] << 4) | (raw[2] >> 4);
   const adcT = (raw[3] << 12) | (raw[4] << 4) | (raw[5] >> 4);
   const adcH = (raw[6] << 8) | raw[7];
-  if (adcT === 0x80000 || adcP === 0x80000 || adcH === 0x8000) {
-    throw new Error('BME280 measurement is not ready yet');
-  }
+  if (measurementNotReady(raw)) throw new Error('BME280 measurement is not ready yet');
 
   const t1 = (adcT / 16384 - c.T1 / 1024) * c.T2;
   const t2 = (adcT / 131072 - c.T1 / 8192) ** 2 * c.T3;
@@ -118,6 +123,13 @@ export class Bme280 {
 
   async read(): Promise<Reading> {
     if (!this.calibration) throw new Error('BME280 has not been initialized');
+    // The first normal-mode conversion may still be running immediately after
+    // configuration. Retry only the sensor's unconverted-data sentinel.
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const raw = await this.bus.readRegister(this.address, 0xf7, 8);
+      if (raw.length !== 8 || !measurementNotReady(raw)) return compensate(raw, this.calibration);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
     return compensate(await this.bus.readRegister(this.address, 0xf7, 8), this.calibration);
   }
 }

@@ -36,7 +36,9 @@ class I2cCommands {
   }
   hold(sclHigh: boolean, sdaLow: boolean): void {
     // START/STOP need more setup time than a single MPSSE GPIO command.
-    for (let i = 0; i < 100; i++) this.gpio(sclHigh, sdaLow);
+    // Avoid hundreds of redundant commands: a long OUT transfer can stall
+    // some USB hosts before the FT232H reaches the read/flush commands.
+    for (let i = 0; i < 32; i++) this.gpio(sclHigh, sdaLow);
   }
 
   start(): void {
@@ -152,12 +154,8 @@ export class Ft232hI2c {
   private async send(bytes: number[]): Promise<void> {
     if (this.endpointOut === null) throw new Error('FT232H USB OUT endpoint not found');
     const payload = new Uint8Array(bytes);
-    // Keep writes below one high-speed USB packet (512 bytes). Large bulk OUT
-    // transfers can stall in Chrome on Android; MPSSE accepts a byte stream
-    // across multiple USB transfers, including across command boundaries.
-    const chunkSize = 256;
-    for (let offset = 0; offset < payload.length; offset += chunkSize) {
-      const chunk = payload.subarray(offset, offset + chunkSize);
+    for (let offset = 0; offset < payload.length; offset += 4096) {
+      const chunk = payload.subarray(offset, offset + 4096);
       try {
         const result = await timed(
           this.device.transferOut(this.endpointOut, chunk),
