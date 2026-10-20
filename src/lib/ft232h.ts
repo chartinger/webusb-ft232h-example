@@ -152,8 +152,12 @@ export class Ft232hI2c {
   private async send(bytes: number[]): Promise<void> {
     if (this.endpointOut === null) throw new Error('FT232H USB OUT endpoint not found');
     const payload = new Uint8Array(bytes);
-    for (let offset = 0; offset < payload.length; offset += 4096) {
-      const chunk = payload.subarray(offset, offset + 4096);
+    // Keep writes below one high-speed USB packet (512 bytes). Large bulk OUT
+    // transfers can stall in Chrome on Android; MPSSE accepts a byte stream
+    // across multiple USB transfers, including across command boundaries.
+    const chunkSize = 256;
+    for (let offset = 0; offset < payload.length; offset += chunkSize) {
+      const chunk = payload.subarray(offset, offset + chunkSize);
       try {
         const result = await timed(
           this.device.transferOut(this.endpointOut, chunk),

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Ft232hI2c } from '../src/lib/ft232h';
 
-function fakeDevice(replies: number[], vendorId = 0x0403, productId = 0x6014) {
+function fakeDevice(replies: number[], vendorId = 0x0403, productId = 0x6014, maxWrite = Infinity) {
   const writes: number[][] = [];
   const controls: USBControlTransferParameters[] = [];
   let readCount = 0;
@@ -38,6 +38,7 @@ function fakeDevice(replies: number[], vendorId = 0x0403, productId = 0x6014) {
     async transferOut(endpoint: number, bytes: BufferSource) {
       assert.equal(endpoint, 2);
       const data = bytes as Uint8Array;
+      assert.ok(data.length <= maxWrite, `USB write exceeded ${maxWrite} bytes`);
       writes.push(Array.from(data));
       return { status: 'ok', bytesWritten: data.length };
     },
@@ -119,12 +120,17 @@ void test('hardware-byte-clock chip-ID read accepts padded ACK replies', async (
   for (const opcode of [0x11, 0x22, 0x20, 0x13]) assert.ok(transaction.includes(opcode));
 });
 
-void test('26-byte calibration read fits in one MPSSE transaction', async () => {
-  const { device, getReadCount } = fakeDevice([0x80, 0xc0, 0, ...Array(26).fill(42)]);
-  const bus = new Ft232hI2c(device);
+void test('26-byte calibration read splits USB writes without splitting the MPSSE response', async () => {
+  const replies = [0x80, 0xc0, 0, ...Array(26).fill(42)];
+  const limited = fakeDevice(replies, 0x0403, 0x6014, 256);
+  const bus = new Ft232hI2c(limited.device);
   await bus.open();
   assert.deepEqual(Array.from(await bus.readRegister(0x76, 0x88, 26)), Array(26).fill(42));
-  assert.equal(getReadCount(), 1);
+  const chunks = limited.writes.slice(1);
+  assert.ok(chunks.length > 1);
+  assert.ok(chunks.slice(0, -1).every((chunk) => chunk.length === 256));
+  assert.equal(chunks.flat().at(-1), 0x87); // flush after the full command stream
+  assert.equal(limited.getReadCount(), 1);
 });
 
 void test('register write checks only bit 0 of each ACK', async () => {
