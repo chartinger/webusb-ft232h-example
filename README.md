@@ -15,6 +15,10 @@ Vue 3 + TypeScript app that reads a BME280 temperature / humidity / pressure sen
 
 SDA **must** have a pull-up to 3.3 V (typically 4.7 kΩ); add a pull-up to SCL too. Many BME280 breakout boards already provide these resistors: check yours first. The FT232H releases D1 to input/high-impedance when SDA should be high, so the pull-up is essential. Connect D1 and D2 **together** at SDA unless your FT232H board has an I2C switch that connects them internally; in that case, set the switch **ON** and wire SDA to D1. The switch connects the pins; it does not replace the need for SDA pull-ups. Never connect the BME280 directly to 5 V logic. If your breakout has no voltage regulator, power it from 3.3 V only.
 
+## GitHub Pages
+
+The site is deployed from `main` by `.github/workflows/deploy.yml` to https://chartinger.github.io/webusb-ft232h-example/. In the repository's **Settings → Pages**, set **Build and deployment → Source** to **GitHub Actions**. Push to `main` (or run the workflow manually) to publish it. Vite's `base` is set to `/webusb-ft232h-example/` so assets resolve under the repository URL. GitHub Pages serves over HTTPS, as required by WebUSB; use a desktop Chromium-based browser to connect the sensor.
+
 ## Run
 
 ```sh
